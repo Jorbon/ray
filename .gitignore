@@ -1,3 +1,5 @@
 # annoying mac
 *.DS_Store
 
+# out
+output/
