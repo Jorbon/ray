@@ -28,6 +28,7 @@ struct Color {
 Color operator +(const Color &u, const Color &v) { return Color(u.r+v.r, u.g+v.g, u.b+v.b); }
 Color operator *(double c, const Color &v) { return Color(v.r*c, v.g*c, v.b*c); }
 Color operator *(const Color &v, double c) { return Color(v.r*c, v.g*c, v.b*c); }
+Color operator /(const Color &v, double c) { double tmp = 1/c; return Color(v.r*tmp, v.g*tmp, v.b*tmp); }
 
 struct Vec3 {
 	double x, y, z;
@@ -46,17 +47,13 @@ struct Vec3 {
 	double angle(const Vec3 &v) const { return acos(this->dot(v) / (this->abs() * v.abs())); }
 	Vec3 parallelComponent(const Vec3 &v) const { return v.mult(this->dot(v) / v.abs2()); }
 	Vec3 neg() const { return Vec3(-x, -y, -z); }
-
-	Vec3 add(const Vec3 &v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
-	Vec3 sub(const Vec3 &v) const { return Vec3(x-v.x, y-v.y, z-v.z); }
-	Vec3 mult(double c) const { return Vec3(x*c, y*c, z*c); }
-	Vec3 neg() const { return Vec3(-x, -y, -z); }
 };
 Vec3 operator +(const Vec3 &u, const Vec3 &v) { return Vec3(u.x+v.x, u.y+v.y, u.z+v.z); }
 Vec3 operator -(const Vec3 &u, const Vec3 &v) { return Vec3(u.x-v.x, u.y-v.y, u.z-v.z); }
 Vec3 operator -(const Vec3 &v) { return Vec3(-v.x, -v.y, -v.z); }
 Vec3 operator *(double c, const Vec3 &v) { return Vec3(v.x*c, v.y*c, v.z*c); }
 Vec3 operator *(const Vec3 &v, double c) { return Vec3(v.x*c, v.y*c, v.z*c); }
+Vec3 operator /(const Vec3 &v, double c) { double tmp = 1/c; return Vec3(v.x*tmp, v.y*tmp, v.z*tmp); }
 
 
 struct Ray {
@@ -66,7 +63,7 @@ struct Ray {
 	Ray(Vec3 p, const Vec3 &v, bool norm=true) { this->p = p, this->v = norm ? v.normalize() : Vec3(v); }
 	Ray(const Ray &r) { p = Vec3(r.p), v = Vec3(r.v); }
 	Color trace(Scene *s, int ord, double mag) const;
-	Vec3 point(double t) const { return p.add(v.mult(t)); }
+	Vec3 point(double t) const { return p + v * t; }
 	Ray normalize() const { return Ray(p, v.normalize()); }
 };
 
@@ -97,24 +94,20 @@ struct Scene {
 	double colorDetail;
 	double n;
 	wxImage cube[6];
-	Sphere spheres[8];
+	Sphere spheres[2];
 	int spherecount;
 	Scene() {
 		cam = Vec3(0, 0, -5);
 		dx = 0, dy = 0, fov = 90, speed = 0.2;
 		res = 1, lowres = 20;
-		rayLimit = 24;
+		rayLimit = 1000;
 		colorDetail = 0.002;
 		n = 1;
 		for (int i = 0; i < 6; i++)
 			cube[i].LoadFile("resources/" + to_string(i) + ".png", wxBITMAP_TYPE_PNG);
-		spherecount = 8;
-		double x = 0;
-		for (int i = 0; i < spherecount; i++) {
-			x += (i+1)/8.0;
-			spheres[i] = Sphere(Vec3(x, 0, 0), (i+1)/8.0, 1.4);
-			x += (i+2)/8.0;
-		}
+		spherecount = 2;
+		spheres[0] = Sphere(Vec3(), 2, 1.5);
+		spheres[1] = Sphere(Vec3(), 1.8, 0.88867);
 	}
 	Color getCubeColor(const Ray *r) const;
 };
@@ -358,11 +351,11 @@ Color Scene::getCubeColor(const Ray *r) const {
 	else if (b >= height)
 		b = height - 1;
 	
-	return Color(cube[d].GetRed(a, b), cube[d].GetGreen(a, b), cube[d].GetBlue(a, b)).mult(1.0/255);
+	return Color(cube[d].GetRed(a, b), cube[d].GetGreen(a, b), cube[d].GetBlue(a, b)) / 255;
 }
 
 Impact Sphere::intersect(const Ray *r) const {
-	Vec3 relativecenter = r->p.sub(this->center);
+	Vec3 relativecenter = r->p - this->center;
 	double b = 2 * r->v.dot(relativecenter),
 		c = relativecenter.abs2() - this->radius * this->radius;
 	double determinant = b*b - 4*c;
@@ -378,15 +371,15 @@ Impact Sphere::intersect(const Ray *r) const {
 		t = (-b + root) * 0.5;
 	else t = (-b - root) * 0.5; // entering collision
 
-	return Impact(true, r->point(t).sub(this->center).mult(1/this->radius), t);
+	return Impact(true, (r->point(t) - this->center) / this->radius, t);
 };
 
 
 Color Ray::trace(Scene *scene, int ord=0, double mag=1) const {
 	if (mag < scene->colorDetail)
-		return Color(0.5, 0.5, 0.5).mult(mag);
+		return Color(0.5, 0.5, 0.5) * mag;
 	if (ord > scene->rayLimit)
-		return Color(1, 0, 1).mult(mag);
+		return Color(1, 0, 1) * mag;
 	
 	// find first collision
 	Impact record, current;
@@ -397,13 +390,13 @@ Color Ray::trace(Scene *scene, int ord=0, double mag=1) const {
 			record = current, index = i;
 	}
 	if (!record.valid)
-		return scene->getCubeColor(this).mult(mag);
+		return scene->getCubeColor(this) * mag;
 
 
 	double vdotn = v.dot(record.normal);
 	Vec3 impactpoint = point(record.t);
-	Vec3 parallel = record.normal.mult(vdotn);
-	Ray reflection(impactpoint, v.sub(parallel.mult(2)));
+	Vec3 parallel = record.normal * vdotn;
+	Ray reflection(impactpoint, v - parallel * 2);
 	if (scene->spheres[index].reflectonly)
 		return reflection.trace(scene, ord + 1, mag);
 
@@ -422,15 +415,15 @@ Color Ray::trace(Scene *scene, int ord=0, double mag=1) const {
 		return reflection.trace(scene, ord + 1, mag);
 
 	// refraction
-	Vec3 tangent = v.sub(parallel);
-	Ray refraction(impactpoint, tangent.add((n2 > n1 ? record.normal.neg() : record.normal).mult(sqrt(n21 * n21 - tangent.abs2()))));
+	Vec3 tangent = v - parallel;
+	Ray refraction(impactpoint, tangent + (n2 > n1 ? -record.normal : record.normal) * sqrt(n21 * n21 - tangent.abs2()));
 
 	double h1 = n1 * abs(vdotn),
 		h2 = n2 * sqrt(1 - n12 * n12 * sin1sq);
 	double h3 = (h1 - h2) / (h1 + h2);
 	double reflectchance = h3 * h3;
 	
-	return reflection.trace(scene, ord + 1, mag * reflectchance).add(refraction.trace(scene, ord + 1, mag * (1 - reflectchance)));
+	return reflection.trace(scene, ord + 1, mag * reflectchance) + refraction.trace(scene, ord + 1, mag * (1 - reflectchance));
 }
 
 
@@ -456,7 +449,7 @@ void BasicDrawPane::render(wxDC& dc, string filename) {
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			Ray r(scene->cam, facing.add(right.mult(((x+0.5) - width*0.5) * lateralscale)).add(down.mult(((y+0.5) - height*0.5) * lateralscale)));
+			Ray r(scene->cam, facing + lateralscale * (right * (x + 0.5 * (1 - width)) + down * (y + 0.5 * (1 - height))));
 			Color color = r.trace(scene);
 			img.SetRGB(x, y, color.rint(), color.gint(), color.bint());
 
