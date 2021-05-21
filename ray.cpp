@@ -9,6 +9,18 @@
 
 using namespace std;
 
+/*
+	TODO
+	material class
+	fix fresnel
+	add absorbtion spectra
+	object inside list tracking & priority system
+	brightness correction (need math)
+	diffuse objects
+	actual lighting
+*/
+
+
 Color Scene::getCubeColor(const Ray *r) const {
 	double x = r->v.x, y = r->v.y, z = r->v.z;
 	double mx = abs(x), my = abs(y), mz = abs(z);
@@ -133,6 +145,7 @@ Color Ray::trace(Scene *scene, int ord=0, double mag=1) const {
 	Vec3 tangent = v - parallel;
 	Ray refraction(impactpoint, tangent + (n2 > n1 ? -record.normal : record.normal) * sqrt(n21 * n21 - tangent.abs2()));
 
+	// fix this it is only partially correct and also unoptimized, also need the new material property in here
 	double h1 = n1 * abs(vdotn),
 		h2 = n2 * sqrt(1 - n12 * n12 * sin1sq);
 	double h3 = (h1 - h2) / (h1 + h2);

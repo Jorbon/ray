@@ -6,23 +6,6 @@ using namespace std;
 const double pi = 3.1415926535897932384626433;
 const double SMOL = 0.000000000001;
 
-struct Scene;
-
-struct Color {
-	double r, g, b;
-	Color() { r = 0, g = 0, b = 0; }
-	Color(double r, double g, double b) { this->r = r, this->g = g, this->b = b; }
-	Color(const Color &c) { r = c.r, g = c.g, b = c.b; }
-	Color add(const Color &c) const { return Color(r+c.r, g+c.g, b+c.b); }
-	Color mult(double c) const { return Color(r*c, g*c, b*c); }
-	int rint() const { return max(min((int)(r*255), 255), 0); }
-	int gint() const { return max(min((int)(g*255), 255), 0); }
-	int bint() const { return max(min((int)(b*255), 255), 0); }
-};
-Color operator +(const Color &u, const Color &v) { return Color(u.r+v.r, u.g+v.g, u.b+v.b); }
-Color operator *(double c, const Color &v) { return Color(v.r*c, v.g*c, v.b*c); }
-Color operator *(const Color &v, double c) { return Color(v.r*c, v.g*c, v.b*c); }
-Color operator /(const Color &v, double c) { double tmp = 1/c; return Color(v.r*tmp, v.g*tmp, v.b*tmp); }
 
 struct Vec3 {
 	double x, y, z;
@@ -50,6 +33,26 @@ Vec3 operator *(const Vec3 &v, double c) { return Vec3(v.x*c, v.y*c, v.z*c); }
 Vec3 operator /(const Vec3 &v, double c) { double tmp = 1/c; return Vec3(v.x*tmp, v.y*tmp, v.z*tmp); }
 
 
+
+struct Color {
+	double r, g, b;
+	Color() { r = 0, g = 0, b = 0; }
+	Color(double r, double g, double b) { this->r = r, this->g = g, this->b = b; }
+	Color(const Color &c) { r = c.r, g = c.g, b = c.b; }
+	Color add(const Color &c) const { return Color(r+c.r, g+c.g, b+c.b); }
+	Color mult(double c) const { return Color(r*c, g*c, b*c); }
+	int rint() const { return max(min((int)(r*255), 255), 0); }
+	int gint() const { return max(min((int)(g*255), 255), 0); }
+	int bint() const { return max(min((int)(b*255), 255), 0); }
+};
+Color operator +(const Color &u, const Color &v) { return Color(u.r+v.r, u.g+v.g, u.b+v.b); }
+Color operator *(double c, const Color &v) { return Color(v.r*c, v.g*c, v.b*c); }
+Color operator *(const Color &v, double c) { return Color(v.r*c, v.g*c, v.b*c); }
+Color operator /(const Color &v, double c) { double tmp = 1/c; return Color(v.r*tmp, v.g*tmp, v.b*tmp); }
+
+
+struct Scene;
+
 struct Ray {
 	Vec3 p, v;
 	// TODO object array for index history
@@ -69,7 +72,15 @@ struct Impact {
 	Impact(bool valid, Vec3 normal, double t) { this->valid = valid, this->normal = normal, this->t = t; }
 };
 
-struct Sphere {
+struct Material {
+	
+};
+
+struct Geometry {
+	virtual const Impact intersect(const Ray *r);
+};
+
+struct Sphere : Geometry {
 	Vec3 center;
 	double radius;
 	double n;
