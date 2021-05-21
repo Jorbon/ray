@@ -14,6 +14,8 @@ using namespace std;
 	material class
 	fix fresnel
 	add absorbtion spectra
+	linear rgb conversion
+	end step brightness adjustment
 	object inside list tracking & priority system
 	brightness correction (need math)
 	diffuse objects
